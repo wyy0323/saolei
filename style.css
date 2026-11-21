@@ -1512,10 +1512,20 @@ body::after {
 }
 
 .board {
-  gap: 1px;
+  position: relative;
+  display: block;
+  --gap: 1px;
+  gap: 0;
   padding: 3px;
   background: #b3b3b3;
   box-shadow: inset 2px 2px 0 #8f8f8f, inset -2px -2px 0 #ececec;
+}
+
+/* 格子按行列绝对定位，配合只渲染可视区域的逻辑 */
+.board .cell {
+  position: absolute;
+  left: calc(var(--c) * (var(--cell) + var(--gap)));
+  top: calc(var(--r) * (var(--cell) + var(--gap)));
 }
 
 .cell {
