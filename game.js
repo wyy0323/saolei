@@ -30,6 +30,13 @@
   const DEFAULT_CUSTOM = { rows: 12, cols: 12, mines: 24 };
   const LONG_PRESS_MS = 360;
 
+  // iOS 下 Web Audio 默认跟随静音键，用一段循环静音音频把会话切到播放模式
+  const IS_IOS =
+    /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const SILENT_WAV =
+    'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
+
   const state = {
     selected: 'beginner',
     custom: loadJSON(LS_CUSTOM, DEFAULT_CUSTOM),
@@ -76,14 +83,59 @@
 
   const audio = {
     ctx: null,
+    unlocked: false,
+    silentEl: null,
 
     ensure() {
       if (!state.sound) return null;
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return null;
-      if (!this.ctx) this.ctx = new Ctx();
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (!this.ctx) {
+        try {
+          this.ctx = new Ctx();
+        } catch (err) {
+          return null;
+        }
+      }
+      if (this.ctx.state !== 'running') {
+        const resumed = this.ctx.resume();
+        if (resumed && resumed.catch) resumed.catch(() => {});
+      }
       return this.ctx;
+    },
+
+    /* 移动端必须在用户手势里解锁音频，iOS 还要求先播放一次音频 */
+    unlock() {
+      if (!state.sound) return;
+      const ctx = this.ensure();
+      if (!ctx) return;
+
+      if (IS_IOS) {
+        if (!this.silentEl) {
+          const el = document.createElement('audio');
+          el.setAttribute('playsinline', '');
+          el.loop = true;
+          el.preload = 'auto';
+          el.volume = 0.01;
+          el.src = SILENT_WAV;
+          this.silentEl = el;
+        }
+        const played = this.silentEl.paused ? this.silentEl.play() : null;
+        if (played && played.catch) played.catch(() => {});
+      }
+
+      if (this.unlocked) return;
+      this.unlocked = true;
+
+      try {
+        const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      } catch (err) {
+        /* 解锁失败时忽略 */
+      }
     },
 
     tone(freq, dur, opts = {}) {
@@ -93,13 +145,15 @@
       const start = ctx.currentTime + (opts.delay || 0);
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      // 手机扬声器偏小，整体提升音量
+      const level = Math.min(0.4, (opts.gain || 0.05) * 2.2);
 
       osc.type = opts.type || 'sine';
       osc.frequency.setValueAtTime(freq, start);
       if (opts.to) osc.frequency.exponentialRampToValueAtTime(opts.to, start + dur);
 
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(opts.gain || 0.05, start + 0.008);
+      gain.gain.exponentialRampToValueAtTime(level, start + 0.008);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
 
       osc.connect(gain).connect(ctx.destination);
@@ -125,7 +179,7 @@
       source.buffer = buffer;
       filter.type = 'lowpass';
       filter.frequency.value = 900;
-      gain.gain.value = gainValue;
+      gain.gain.value = Math.min(0.5, gainValue * 1.8);
 
       source.connect(filter).connect(gain).connect(ctx.destination);
       source.start();
@@ -194,6 +248,12 @@
     btn.classList.toggle('is-off', !on);
     btn.setAttribute('aria-pressed', String(on));
     btn.title = on ? '音效：开' : '音效：关';
+
+    if (on) {
+      audio.unlock();
+    } else if (audio.silentEl) {
+      audio.silentEl.pause();
+    }
 
     if (on && playTest) audio.tone(660, 0.09, { type: 'sine', gain: 0.04 });
   }
@@ -1120,6 +1180,17 @@
   }
 
   function bindUI() {
+    ['pointerdown', 'touchstart', 'click'].forEach((type) => {
+      document.addEventListener(type, () => audio.unlock(), { capture: true, passive: true });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!audio.ctx || audio.ctx.state === 'running') return;
+      const resumed = audio.ctx.resume();
+      if (resumed && resumed.catch) resumed.catch(() => {});
+    });
+
     $('btn-start').addEventListener('click', () => startGame(diffOf(state.selected)));
 
     $('btn-goto-difficulty').addEventListener('click', () => showScreen('difficulty'));
