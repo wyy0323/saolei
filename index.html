@@ -4,7 +4,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0f1c">
   <title>扫雷 · 经典排雷</title>
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <main class="app">
@@ -200,11 +200,11 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="custom-title">
       <h2 id="custom-title">自定义难度</h2>
       <div class="fields">
-        <label class="field"><span>行数</span><input id="inp-rows" type="number" min="5" max="100" step="1" value="12" inputmode="numeric"></label>
-        <label class="field"><span>列数</span><input id="inp-cols" type="number" min="5" max="100" step="1" value="12" inputmode="numeric"></label>
+        <label class="field"><span>行数</span><input id="inp-rows" type="number" min="5" max="1000" step="1" value="12" inputmode="numeric"></label>
+        <label class="field"><span>列数</span><input id="inp-cols" type="number" min="5" max="1000" step="1" value="12" inputmode="numeric"></label>
         <label class="field"><span>地雷</span><input id="inp-mines" type="number" min="1" step="1" value="24" inputmode="numeric"></label>
       </div>
-      <p id="custom-hint" class="form-hint">行 5-100，列 5-100，地雷上限为格子数 - 9</p>
+      <p id="custom-hint" class="form-hint">行 5-1000，列 5-1000，地雷上限为格子数 - 9</p>
       <div class="modal-actions">
         <button id="btn-custom-cancel" class="btn btn-ghost" type="button">取消</button>
         <button id="btn-custom-ok" class="btn btn-primary" type="button">开始游戏</button>
@@ -214,7 +214,7 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="game.js?v=11"></script>
+  <script src="game.js?v=13"></script>
 
 
 </body></html>
