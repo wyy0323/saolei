@@ -7,7 +7,7 @@
 
   const SVG = {
     flag:
-      '<svg viewBox="0 0 24 24"><path d="M8 20V5" stroke="#1b1b1b" stroke-width="2" stroke-linecap="round"/><path d="M8 5.6 15.5 9 8 12.4z" fill="currentColor"/><path d="M5.6 20h5.2" stroke="#1b1b1b" stroke-width="2" stroke-linecap="round"/></svg>',
+      '<svg viewBox="0 0 24 24"><path d="M7 21V3" stroke="#1b1b1b" stroke-width="2.6" stroke-linecap="round"/><path d="M7.2 3.2 19.6 8.6 7.2 14z" fill="currentColor"/><path d="M4 21h6" stroke="#1b1b1b" stroke-width="2.6" stroke-linecap="round"/></svg>',
     mine:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/></svg>',
     trophy:
