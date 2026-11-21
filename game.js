@@ -159,6 +159,11 @@
       this.tone(600, 0.16, { type: 'sine', gain: 0.035, delay: 0.08 });
     },
 
+    undo() {
+      this.tone(560, 0.1, { type: 'sine', gain: 0.03 });
+      this.tone(390, 0.15, { type: 'sine', gain: 0.025, delay: 0.07 });
+    },
+
     boom() {
       this.noise(0.55, 0.14);
       this.tone(170, 0.6, { to: 40, type: 'sawtooth', gain: 0.1 });
@@ -191,6 +196,20 @@
     btn.title = on ? '音效：开' : '音效：关';
 
     if (on && playTest) audio.tone(660, 0.09, { type: 'sine', gain: 0.04 });
+  }
+
+  let toastTimer = null;
+
+  function showToast(message) {
+    const node = $('toast');
+    node.textContent = message;
+    node.hidden = true;
+    void node.offsetWidth;
+    node.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      node.hidden = true;
+    }, 1600);
   }
 
   function pad(n) {
@@ -240,7 +259,7 @@
 
   function addRecord(game, win, secs) {
     const list = loadHistory();
-    list.unshift({
+    const record = {
       name: game.name,
       rows: game.rows,
       cols: game.cols,
@@ -248,8 +267,18 @@
       win,
       secs,
       at: Date.now(),
-    });
+    };
+    list.unshift(record);
     saveJSON(LS_HISTORY, list.slice(0, 100));
+    return record;
+  }
+
+  function removeRecord(record) {
+    if (!record) return;
+    const list = loadHistory().filter(
+      (item) => !(item.at === record.at && item.win === record.win && item.secs === record.secs)
+    );
+    saveJSON(LS_HISTORY, list);
   }
 
   function formatDateTime(timestamp) {
@@ -393,6 +422,8 @@
       startAt: 0,
       running: false,
       timerId: null,
+      history: [],
+      lossRecord: null,
     };
 
     for (let i = 0; i < rows * cols; i++) {
@@ -412,6 +443,7 @@
 
     buildBoard(g);
     updateStats();
+    updateUndo();
     showScreen('game');
     requestAnimationFrame(fitBoard);
   }
@@ -553,6 +585,75 @@
     }
   }
 
+  /* ================= 撤销 ================= */
+
+  const STATE_CODE = { hidden: 'h', revealed: 'r', flagged: 'f', wrong: 'w' };
+
+  function pushHistory(g) {
+    g.history.push({
+      cells: g.cells.map((cell) => (cell.exploded ? 'x' : STATE_CODE[cell.state])).join(''),
+      revealed: g.revealed,
+      flags: g.flags,
+      status: g.status,
+      elapsed: elapsedNow(),
+    });
+    if (g.history.length > 150) g.history.shift();
+    updateUndo();
+  }
+
+  function updateUndo() {
+    const g = state.game;
+    const can = Boolean(g) && g.history.length > 0 && g.status !== 'won' && g.status !== 'paused';
+    $('btn-undo').disabled = !can;
+  }
+
+  function undo() {
+    const g = state.game;
+    if (!g || !g.history.length) return;
+    if (g.status === 'paused' || g.status === 'won') return;
+
+    const wasLost = g.status === 'lost';
+    const snap = g.history.pop();
+
+    if (wasLost) {
+      removeRecord(g.lossRecord);
+      g.lossRecord = null;
+      $('result-overlay').hidden = true;
+      $('board').classList.remove('is-shaking');
+      $('board-wrap').classList.remove('is-paused');
+    }
+
+    for (let i = 0; i < g.cells.length; i++) {
+      const code = snap.cells[i];
+      const cell = g.cells[i];
+      cell.state = code === 'h' ? 'hidden' : code === 'r' || code === 'x' ? 'revealed' : code === 'f' ? 'flagged' : 'wrong';
+      cell.exploded = code === 'x';
+      applyCell(i);
+    }
+
+    g.revealed = snap.revealed;
+    g.flags = snap.flags;
+    g.status = snap.status;
+    g.prevStatus = null;
+
+    g.running = false;
+    clearInterval(g.timerId);
+    g.timerId = null;
+    g.elapsed = snap.elapsed;
+    g.startAt = 0;
+    if (g.status === 'playing') {
+      resumeTimer();
+    }
+    tickTimer();
+
+    $('game-tip').textContent =
+      g.status === 'ready' ? '首次点击不会踩雷' : '双击数字可快速展开周围';
+    updateStats();
+    updateUndo();
+    audio.undo();
+    showToast('已撤销上一步');
+  }
+
   function placeMines(safeIndex) {
     const g = state.game;
     const total = g.rows * g.cols;
@@ -623,6 +724,8 @@
       $('game-tip').textContent = '双击数字可快速展开周围';
     }
 
+    pushHistory(g);
+
     if (cell.mine) {
       boom(index);
       return;
@@ -639,6 +742,8 @@
 
     const cell = g.cells[index];
     if (!cell || cell.state === 'revealed') return;
+
+    pushHistory(g);
 
     if (cell.state === 'flagged') {
       cell.state = 'hidden';
@@ -666,6 +771,14 @@
       if (g.cells[n].state === 'flagged') flags++;
     }
     if (flags !== cell.adj) return;
+
+    let hidden = 0;
+    for (const n of around) {
+      if (g.cells[n].state === 'hidden') hidden++;
+    }
+    if (!hidden) return;
+
+    pushHistory(g);
 
     let opened = 0;
     for (const n of around) {
@@ -704,7 +817,8 @@
     });
 
     const secs = Math.floor(elapsedNow());
-    addRecord(g, false, secs);
+    g.lossRecord = addRecord(g, false, secs);
+    updateUndo();
     scheduleResult(g, false, secs, bestOf(g), false, 620);
   }
 
@@ -740,12 +854,14 @@
 
     renderDiffs();
     addRecord(g, true, secs);
+    updateUndo();
     scheduleResult(g, true, secs, isNew ? secs : previous, isNew, 720);
   }
 
   function scheduleResult(game, isWin, secs, bestSec, isNew, delay) {
     setTimeout(() => {
       if (state.game !== game) return;
+      if (isWin ? game.status !== 'won' : game.status !== 'lost') return;
       showResult(isWin, secs, bestSec, isNew);
     }, delay);
   }
@@ -763,6 +879,8 @@
     $('result-best').textContent = bestSec == null ? '--:--' : formatClock(bestSec);
     $('result-best').classList.toggle('is-new', Boolean(isNew));
     $('result-best-label').textContent = isNew ? '新纪录' : '最佳';
+    $('btn-undo-result').hidden = isWin;
+    $('btn-undo-result').style.display = isWin ? 'none' : '';
     $('result-overlay').hidden = false;
 
     if (isWin) playConfetti();
@@ -802,6 +920,7 @@
     $('board-wrap').classList.add('is-paused');
     $('btn-pause').classList.add('is-active');
     $('pause-overlay').hidden = false;
+    updateUndo();
   }
 
   function resumeGame() {
@@ -815,6 +934,7 @@
     $('board-wrap').classList.remove('is-paused');
     $('btn-pause').classList.remove('is-active');
     $('pause-overlay').hidden = true;
+    updateUndo();
     if (wasPlaying) resumeTimer();
   }
 
@@ -1023,6 +1143,8 @@
     $('btn-pause').addEventListener('click', pauseGame);
     $('btn-restart').addEventListener('click', restart);
     $('btn-restart-foot').addEventListener('click', restart);
+    $('btn-undo').addEventListener('click', undo);
+    $('btn-undo-result').addEventListener('click', undo);
 
     $('btn-resume').addEventListener('click', resumeGame);
     $('btn-pause-restart').addEventListener('click', restart);
@@ -1053,10 +1175,17 @@
       const btn = event.target.closest('button');
       if (!btn || btn.disabled) return;
       if (btn.id === 'btn-pause' || btn.id === 'btn-resume') return;
+      if (btn.id === 'btn-undo' || btn.id === 'btn-undo-result') return;
       audio.tap();
     });
 
     document.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        if (!$('screen-game').classList.contains('is-active')) return;
+        event.preventDefault();
+        undo();
+        return;
+      }
       if (event.key !== 'Escape') return;
       if ($('custom-modal').hidden === false) {
         closeCustom();
