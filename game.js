@@ -46,6 +46,10 @@
     lastTouchAt: 0,
     touchHandled: false,
     longFired: false,
+    pressMoved: false,
+    pressScrollX: 0,
+    pressScrollY: 0,
+    scrolledAt: 0,
     pressTimer: null,
     pressIndex: null,
     pressX: 0,
@@ -505,26 +509,16 @@
     updateStats();
     updateUndo();
     showScreen('game');
+    $('board-wrap').scrollLeft = 0;
+    $('board-wrap').scrollTop = 0;
     requestAnimationFrame(fitBoard);
   }
 
   function buildBoard(g) {
     const board = $('board');
     board.innerHTML = '';
-    board.style.gridTemplateColumns = `repeat(${g.cols}, var(--cell))`;
-
-    const frag = document.createDocumentFragment();
-    g.els = new Array(g.rows * g.cols);
-    for (let i = 0; i < g.rows * g.cols; i++) {
-      const node = document.createElement('div');
-      node.className = 'cell';
-      node.dataset.i = String(i);
-      node.style.setProperty('--r', String(Math.floor(i / g.cols)));
-      node.style.setProperty('--c', String(i % g.cols));
-      g.els[i] = node;
-      frag.appendChild(node);
-    }
-    board.appendChild(frag);
+    g.els = new Map();
+    g.view = { r0: -1, r1: -1, c0: -1, c1: -1 };
   }
 
   function fitBoard() {
@@ -532,12 +526,21 @@
     if (!g) return;
 
     const wrap = $('board-wrap');
-    const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 3;
-    const availW = wrap.clientWidth - 16 - gap * (g.cols - 1) - gap * 2;
-    const availH = wrap.clientHeight - 16 - gap * (g.rows - 1) - gap * 2;
+    const gap = 1;
+    const pad = 3;
+    const availW = wrap.clientWidth - 16 - gap * (g.cols - 1);
+    const availH = wrap.clientHeight - 16 - gap * (g.rows - 1);
     const size = Math.max(16, Math.min(44, Math.floor(Math.min(availW / g.cols, availH / g.rows))));
 
     document.documentElement.style.setProperty('--cell', `${size}px`);
+
+    // 大棋盘只渲染可视区域，棋盘本体用固定尺寸撑开滚动条
+    const board = $('board');
+    board.style.setProperty('--gap', `${gap}px`);
+    board.style.width = `${g.cols * size + (g.cols - 1) * gap + pad * 2}px`;
+    board.style.height = `${g.rows * size + (g.rows - 1) * gap + pad * 2}px`;
+
+    syncView(true);
   }
 
   /* ================= 计时 ================= */
@@ -605,8 +608,13 @@
 
   function applyCell(index) {
     const g = state.game;
-    const cell = g.cells[index];
-    const node = g.els[index];
+    const node = g.els.get(index);
+    if (!node) return;
+    paintCell(index, node);
+  }
+
+  function paintCell(index, node) {
+    const cell = state.game.cells[index];
     let className = 'cell';
     let html = '';
 
@@ -631,6 +639,69 @@
     node.innerHTML = html;
   }
 
+  let viewFrame = 0;
+
+  function scheduleView() {
+    if (viewFrame) return;
+    viewFrame = requestAnimationFrame(() => {
+      viewFrame = 0;
+      syncView(false);
+    });
+  }
+
+  /* 只渲染滚动可视范围内的格子，1000×1000 也不会卡死 */
+  function syncView(force) {
+    const g = state.game;
+    if (!g || !g.els) return;
+
+    const wrap = $('board-wrap');
+    const board = $('board');
+    const size = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell')) || 16;
+    const gap = 1;
+    const pad = 3;
+    const step = size + gap;
+    const margin = 2;
+
+    const c0 = Math.max(0, Math.floor((wrap.scrollLeft - pad) / step) - margin);
+    const c1 = Math.min(g.cols - 1, Math.ceil((wrap.scrollLeft + wrap.clientWidth - pad) / step) + margin);
+    const r0 = Math.max(0, Math.floor((wrap.scrollTop - pad) / step) - margin);
+    const r1 = Math.min(g.rows - 1, Math.ceil((wrap.scrollTop + wrap.clientHeight - pad) / step) + margin);
+
+    const view = g.view;
+    const same = view && view.r0 === r0 && view.r1 === r1 && view.c0 === c0 && view.c1 === c1;
+    if (same) {
+      if (force) g.els.forEach((node, index) => paintCell(index, node));
+      return;
+    }
+    g.view = { r0, r1, c0, c1 };
+
+    g.els.forEach((node, index) => {
+      const r = Math.floor(index / g.cols);
+      const c = index % g.cols;
+      if (r < r0 || r > r1 || c < c0 || c > c1) {
+        node.remove();
+        g.els.delete(index);
+      }
+    });
+
+    const frag = document.createDocumentFragment();
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        const index = r * g.cols + c;
+        if (g.els.has(index)) continue;
+        const node = document.createElement('div');
+        node.className = 'cell';
+        node.dataset.i = String(index);
+        node.style.setProperty('--r', String(r));
+        node.style.setProperty('--c', String(c));
+        g.els.set(index, node);
+        paintCell(index, node);
+        frag.appendChild(node);
+      }
+    }
+    board.appendChild(frag);
+  }
+
   function updateStats() {
     const g = state.game;
     if (!g) return;
@@ -647,17 +718,26 @@
 
   /* ================= 撤销 ================= */
 
-  const STATE_CODE = { hidden: 'h', revealed: 'r', flagged: 'f', wrong: 'w' };
+  const STATE_CODE = { hidden: 0, revealed: 1, flagged: 2, wrong: 3 };
+  const STATE_NAMES = ['hidden', 'revealed', 'flagged', 'wrong'];
+  const STATE_EXPLODED = 4;
 
   function pushHistory(g) {
+    const snaps = new Uint8Array(g.cells.length);
+    for (let i = 0; i < g.cells.length; i++) {
+      const cell = g.cells[i];
+      snaps[i] = cell.exploded ? STATE_EXPLODED : STATE_CODE[cell.state];
+    }
     g.history.push({
-      cells: g.cells.map((cell) => (cell.exploded ? 'x' : STATE_CODE[cell.state])).join(''),
+      cells: snaps,
       revealed: g.revealed,
       flags: g.flags,
       status: g.status,
       elapsed: elapsedNow(),
     });
-    if (g.history.length > 150) g.history.shift();
+    // 大棋盘快照体积大，按格子数动态限制可撤销步数
+    const maxKeep = Math.max(6, Math.min(150, Math.floor(12e6 / g.cells.length)));
+    while (g.history.length > maxKeep) g.history.shift();
     updateUndo();
   }
 
@@ -686,10 +766,10 @@
     for (let i = 0; i < g.cells.length; i++) {
       const code = snap.cells[i];
       const cell = g.cells[i];
-      cell.state = code === 'h' ? 'hidden' : code === 'r' || code === 'x' ? 'revealed' : code === 'f' ? 'flagged' : 'wrong';
-      cell.exploded = code === 'x';
-      applyCell(i);
+      cell.state = code === STATE_EXPLODED ? 'revealed' : STATE_NAMES[code];
+      cell.exploded = code === STATE_EXPLODED;
     }
+    syncView(true);
 
     g.revealed = snap.revealed;
     g.flags = snap.flags;
@@ -1032,10 +1112,10 @@
 
     if (![rows, cols, mines].every(Number.isFinite)) {
       message = '请填写完整的数字';
-    } else if (rows < 5 || rows > 100) {
-      message = '行数需在 5 - 100 之间';
-    } else if (cols < 5 || cols > 100) {
-      message = '列数需在 5 - 100 之间';
+    } else if (rows < 5 || rows > 1000) {
+      message = '行数需在 5 - 1000 之间';
+    } else if (cols < 5 || cols > 1000) {
+      message = '列数需在 5 - 1000 之间';
     } else if (mines < 1) {
       message = '地雷数量至少为 1';
     } else if (mines > rows * cols - 9) {
@@ -1092,6 +1172,15 @@
   function bindBoard() {
     const board = $('board');
 
+    $('board-wrap').addEventListener(
+      'scroll',
+      () => {
+        state.scrolledAt = Date.now();
+        scheduleView();
+      },
+      { passive: true }
+    );
+
     board.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       if (Date.now() - state.lastTouchAt < 800) return;
@@ -1105,6 +1194,8 @@
         state.touchHandled = false;
         return;
       }
+      // 触屏刚滑动过棋盘时，忽略浏览器补发的 click
+      if (Date.now() - state.scrolledAt < 300 && Date.now() - state.lastTouchAt < 800) return;
       const node = event.target.closest('.cell');
       if (!node) return;
       const index = Number(node.dataset.i);
@@ -1123,11 +1214,16 @@
 
     board.addEventListener('pointerdown', (event) => {
       state.touchHandled = false;
+      state.pressMoved = false;
       if (event.pointerType === 'mouse') return;
 
       state.lastTouchAt = Date.now();
       const node = event.target.closest('.cell');
       if (!node) return;
+
+      const wrap = $('board-wrap');
+      state.pressScrollX = wrap.scrollLeft;
+      state.pressScrollY = wrap.scrollTop;
 
       const index = Number(node.dataset.i);
       state.pressIndex = index;
@@ -1136,6 +1232,7 @@
       clearPress();
 
       state.pressTimer = setTimeout(() => {
+        if (state.pressMoved) return;
         state.pressTimer = null;
         state.longFired = true;
         toggleFlag(index);
@@ -1144,9 +1241,13 @@
     });
 
     board.addEventListener('pointermove', (event) => {
-      if (!state.pressTimer) return;
+      if (event.pointerType === 'mouse') return;
+      if (state.pressIndex == null) return;
       const moved = Math.abs(event.clientX - state.pressX) + Math.abs(event.clientY - state.pressY);
-      if (moved > 12) clearPress();
+      if (moved > 10) {
+        state.pressMoved = true;
+        clearPress();
+      }
     });
 
     board.addEventListener('pointerup', (event) => {
@@ -1155,12 +1256,19 @@
       const fired = state.longFired;
       const index = state.pressIndex;
       const node = event.target.closest('.cell');
+      const wrap = $('board-wrap');
+      // 滑动（翻看大棋盘）不应触发格子，抬手时再判断一次位移与滚动
+      const scrolled =
+        Math.abs(wrap.scrollLeft - state.pressScrollX) > 2 ||
+        Math.abs(wrap.scrollTop - state.pressScrollY) > 2;
+      const moved = state.pressMoved || scrolled;
+
       state.lastTouchAt = Date.now();
       clearPress();
       state.touchHandled = true;
 
       const sameCell = node && index != null && Number(node.dataset.i) === index;
-      if (!fired && sameCell && state.game) {
+      if (!fired && !moved && sameCell && state.game) {
         if (state.flagMode) {
           toggleFlag(index);
         } else {
@@ -1169,12 +1277,15 @@
       }
 
       state.longFired = false;
+      state.pressMoved = false;
       state.pressIndex = null;
     });
 
     board.addEventListener('pointercancel', () => {
       clearPress();
+      state.touchHandled = true;
       state.longFired = false;
+      state.pressMoved = true;
       state.pressIndex = null;
     });
   }
