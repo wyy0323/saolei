@@ -1562,12 +1562,18 @@ body::after {
 
 .cell.flagged {
   color: #e5232b;
-  background: #c9c9c9;
-  box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #8f8f8f;
+  background: #ffd2d6;
+  box-shadow: inset 2px 2px 0 #fff6f7, inset -2px -2px 0 #dd949c;
 }
 
 .cell.flagged:hover {
-  background: #d2d2d2;
+  background: #ffc2c8;
+}
+
+.cell.flagged svg {
+  width: 96%;
+  height: 96%;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px rgba(229, 35, 43, 0.7));
 }
 
 .cell.mine {
