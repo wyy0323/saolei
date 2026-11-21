@@ -4,18 +4,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0a0f1c">
   <title>扫雷 · 经典排雷</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <main class="app">
     <!-- ============ 主界面 ============ -->
-    <section id="screen-home" class="screen">
+    <section id="screen-home" class="screen is-active">
       <div class="home">
         <header class="brand">
           <div class="brand-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
-              <circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"></circle>
-              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"></path>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 21V4"></path>
+              <path d="M7 4h10l-2 3.5L17 11H7"></path>
             </svg>
           </div>
           <h1>扫雷</h1>
@@ -68,7 +68,7 @@
     </section>
 
     <!-- ============ 难度选择 ============ -->
-    <section id="screen-difficulty" class="screen is-active">
+    <section id="screen-difficulty" class="screen">
       <div class="subpage">
         <header class="sub-header">
           <button id="btn-diff-back" class="icon-btn" type="button" title="返回主菜单" aria-label="返回主菜单">
@@ -115,7 +115,7 @@
 
           <div class="stats">
             <div class="stat" title="剩余地雷">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4"></path><path d="M6 4h11l-2.2 3.5L17 11H6"></path></svg>
+              <svg viewBox="0 0 24 24"><path d="M7 20V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><path d="M7 5.6 15 9 7 12.4z" fill="#ff7b7b"></path><path d="M4.6 20h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
               <span id="stat-mines">10</span>
             </div>
             <div class="stat" title="用时">
@@ -199,11 +199,11 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="custom-title">
       <h2 id="custom-title">自定义难度</h2>
       <div class="fields">
-        <label class="field"><span>行数</span><input id="inp-rows" type="number" min="5" max="24" step="1" value="12" inputmode="numeric"></label>
-        <label class="field"><span>列数</span><input id="inp-cols" type="number" min="5" max="40" step="1" value="12" inputmode="numeric"></label>
+        <label class="field"><span>行数</span><input id="inp-rows" type="number" min="5" max="100" step="1" value="12" inputmode="numeric"></label>
+        <label class="field"><span>列数</span><input id="inp-cols" type="number" min="5" max="100" step="1" value="12" inputmode="numeric"></label>
         <label class="field"><span>地雷</span><input id="inp-mines" type="number" min="1" step="1" value="24" inputmode="numeric"></label>
       </div>
-      <p id="custom-hint" class="form-hint">行 5-24，列 5-40，地雷上限为格子数 - 9</p>
+      <p id="custom-hint" class="form-hint">行 5-100，列 5-100，地雷上限为格子数 - 9</p>
       <div class="modal-actions">
         <button id="btn-custom-cancel" class="btn btn-ghost" type="button">取消</button>
         <button id="btn-custom-ok" class="btn btn-primary" type="button">开始游戏</button>
@@ -213,7 +213,7 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="game.js?v=8"></script>
+  <script src="game.js?v=11"></script>
 
 
 </body></html>
