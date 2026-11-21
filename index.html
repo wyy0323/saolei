@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0f1c" />
+  <title>扫雷 · 经典排雷</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <!-- ============ 主界面 ============ -->
+    <section id="screen-home" class="screen is-active">
+      <div class="home">
+        <header class="brand">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+              <circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"></circle>
+              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"></path>
+            </svg>
+          </div>
+          <h1>扫雷</h1>
+          <p class="brand-sub">Minesweeper · 经典排雷</p>
+        </header>
+
+        <div class="menu">
+          <button id="btn-goto-difficulty" class="menu-btn menu-btn-primary" type="button">
+            <span class="menu-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                <rect x="3.5" y="3.5" width="7" height="7" rx="1.8"></rect>
+                <rect x="13.5" y="3.5" width="7" height="7" rx="1.8"></rect>
+                <rect x="3.5" y="13.5" width="7" height="7" rx="1.8"></rect>
+                <rect x="13.5" y="13.5" width="7" height="7" rx="1.8"></rect>
+              </svg>
+            </span>
+            <span class="menu-text">
+              <b>难度选择</b>
+              <small>选择棋盘大小与地雷数量</small>
+            </span>
+            <svg class="menu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </button>
+
+          <button id="btn-goto-records" class="menu-btn" type="button">
+            <span class="menu-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6.5h16M4 12h16M4 17.5h9"></path>
+              </svg>
+            </span>
+            <span class="menu-text">
+              <b>对局记录</b>
+              <small>查看历史胜负与用时</small>
+            </span>
+            <svg class="menu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </button>
+        </div>
+
+        <div class="home-foot">
+          <button id="btn-help" class="link-btn" type="button" aria-expanded="false" aria-controls="help-panel">玩法说明</button>
+        </div>
+
+        <div id="help-panel" class="help-panel" hidden>
+          <div class="help-row"><span class="k">翻开</span><span>左键点击未知格子；空白区域会自动连片展开</span></div>
+          <div class="help-row"><span class="k">插旗</span><span>右键或触屏长按标记地雷，再次操作即可取消</span></div>
+          <div class="help-row"><span class="k">快开</span><span>双击已翻开的数字，周围旗数与数字相等时展开其余格子</span></div>
+          <div class="help-row"><span class="k">计时</span><span>首次翻开开始计时，暂停时计时会同步停止</span></div>
+          <div class="help-row"><span class="k">目标</span><span>用最短时间翻开所有非地雷格子，最佳成绩按棋盘自动记录</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 难度选择 ============ -->
+    <section id="screen-difficulty" class="screen">
+      <div class="subpage">
+        <header class="sub-header">
+          <button id="btn-diff-back" class="icon-btn" type="button" title="返回主菜单" aria-label="返回主菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+          </button>
+          <h2>难度选择</h2>
+        </header>
+
+        <div id="difficulty-list" class="difficulty-list" role="radiogroup" aria-label="选择难度"></div>
+
+        <button id="btn-start" class="btn btn-primary btn-lg btn-block" type="button">开始游戏</button>
+        <p class="sub-tip">最佳成绩按棋盘自动记录</p>
+      </div>
+    </section>
+
+    <!-- ============ 对局记录 ============ -->
+    <section id="screen-records" class="screen">
+      <div class="subpage">
+        <header class="sub-header">
+          <button id="btn-records-back" class="icon-btn" type="button" title="返回主菜单" aria-label="返回主菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+          </button>
+          <h2>对局记录</h2>
+          <button id="btn-clear-records" class="link-btn" type="button">清空</button>
+        </header>
+
+        <div id="record-summary" class="record-summary"></div>
+        <div id="record-list" class="record-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ 游戏界面 ============ -->
+    <section id="screen-game" class="screen">
+      <div class="game">
+        <header class="game-bar">
+          <button id="btn-home" class="icon-btn" type="button" title="返回主菜单" aria-label="返回主菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+          </button>
+
+          <div class="diff-chip">
+            <span id="game-diff-name" class="chip-name">初级</span>
+            <span id="game-diff-meta" class="chip-meta">9 × 9 · 10 雷</span>
+          </div>
+
+          <div class="stats">
+            <div class="stat" title="剩余地雷">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4"></path><path d="M6 4h11l-2.2 3.5L17 11H6"></path></svg>
+              <span id="stat-mines">10</span>
+            </div>
+            <div class="stat" title="用时">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg>
+              <span id="stat-time">00:00</span>
+            </div>
+          </div>
+
+          <div class="bar-actions">
+            <button id="btn-pause" class="icon-btn" type="button" title="暂停" aria-label="暂停">
+              <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3.6" height="14" rx="1.3"></rect><rect x="13.4" y="5" width="3.6" height="14" rx="1.3"></rect></svg>
+            </button>
+            <button id="btn-restart" class="icon-btn" type="button" title="重新开始" aria-label="重新开始">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"></path><path d="M20 4v5h-5"></path></svg>
+            </button>
+            <button id="btn-sound" class="icon-btn" type="button" title="音效：开" aria-label="音效开关" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3L12 5.5v13L7 14.5H4z"></path><path d="M16 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 6a8.5 8.5 0 0 1 0 12"></path></svg>
+            </button>
+          </div>
+        </header>
+
+        <div id="board-wrap" class="board-wrap">
+          <div id="board" class="board" role="grid" aria-label="雷区"></div>
+        </div>
+
+        <footer class="game-foot">
+          <button id="btn-flag" class="foot-btn" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4"></path><path d="M6 4h11l-2.2 3.5L17 11H6"></path></svg>
+            <span id="flag-label">插旗模式：关</span>
+          </button>
+          <button id="btn-restart-foot" class="foot-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"></path><path d="M20 4v5h-5"></path></svg>
+            <span>重新开始</span>
+          </button>
+          <span id="game-tip" class="tip">首次点击不会踩雷</span>
+        </footer>
+      </div>
+
+      <!-- 暂停菜单 -->
+      <div id="pause-overlay" class="overlay" hidden>
+        <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+          <div class="overlay-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3.6" height="14" rx="1.3"></rect><rect x="13.4" y="5" width="3.6" height="14" rx="1.3"></rect></svg>
+          </div>
+          <h2 id="pause-title">已暂停</h2>
+          <p class="overlay-sub">计时已停止，休息一下</p>
+          <div class="overlay-actions">
+            <button id="btn-resume" class="btn btn-primary" type="button">继续游戏</button>
+            <button id="btn-pause-restart" class="btn" type="button">重新开始</button>
+            <button id="btn-pause-diff" class="btn" type="button">更换难度</button>
+            <button id="btn-pause-home" class="btn btn-ghost" type="button">返回主菜单</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 结算 -->
+      <div id="result-overlay" class="overlay" hidden>
+        <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="result-title">
+          <div id="result-icon" class="overlay-icon" aria-hidden="true"></div>
+          <h2 id="result-title">踩到地雷</h2>
+          <p id="result-sub" class="overlay-sub"></p>
+          <div class="result-stats">
+            <div class="rs"><span>用时</span><b id="result-time">00:00</b></div>
+            <div class="rs"><span id="result-best-label">最佳</span><b id="result-best">--:--</b></div>
+          </div>
+          <div class="overlay-actions">
+            <button id="btn-again" class="btn btn-primary" type="button">再来一局</button>
+            <button id="btn-result-diff" class="btn" type="button">更换难度</button>
+            <button id="btn-result-home" class="btn btn-ghost" type="button">返回主菜单</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 自定义难度 -->
+  <div id="custom-modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="custom-title">
+      <h2 id="custom-title">自定义难度</h2>
+      <div class="fields">
+        <label class="field"><span>行数</span><input id="inp-rows" type="number" min="5" max="24" step="1" value="12" inputmode="numeric" /></label>
+        <label class="field"><span>列数</span><input id="inp-cols" type="number" min="5" max="40" step="1" value="12" inputmode="numeric" /></label>
+        <label class="field"><span>地雷</span><input id="inp-mines" type="number" min="1" step="1" value="24" inputmode="numeric" /></label>
+      </div>
+      <p id="custom-hint" class="form-hint">行 5-24，列 5-40，地雷上限为格子数 - 9</p>
+      <div class="modal-actions">
+        <button id="btn-custom-cancel" class="btn btn-ghost" type="button">取消</button>
+        <button id="btn-custom-ok" class="btn btn-primary" type="button">开始游戏</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
