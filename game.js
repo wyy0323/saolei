@@ -1145,6 +1145,8 @@
     $('result-best-label').textContent = isNew ? '新纪录' : '最佳';
     $('btn-undo-result').hidden = isWin;
     $('btn-undo-result').style.display = isWin ? 'none' : '';
+    $('btn-result-reveal').hidden = isWin;
+    $('btn-result-reveal').style.display = isWin ? 'none' : '';
     $('result-overlay').hidden = false;
 
     if (isWin) playConfetti();
@@ -1204,8 +1206,9 @@
 
   function revealMinesAndLose() {
     const g = state.game;
-    if (!g || g.status !== 'paused') return;
+    if (!g || (g.status !== 'paused' && g.status !== 'lost')) return;
 
+    const wasLost = g.status === 'lost';
     pauseTimer();
     if (!g.minesPlaced) placeMines(0);
     g.status = 'lost';
@@ -1228,7 +1231,7 @@
     });
 
     const secs = Math.floor(elapsedNow());
-    g.lossRecord = addRecord(g, false, secs);
+    if (!wasLost) g.lossRecord = addRecord(g, false, secs);
     saveReview(g);
     updateUndo();
     $('result-overlay').hidden = true;
@@ -1498,6 +1501,7 @@
 
     $('btn-again').addEventListener('click', restart);
     $('btn-result-diff').addEventListener('click', goHome);
+    $('btn-result-reveal').addEventListener('click', revealMinesAndLose);
     $('btn-result-home').addEventListener('click', goHome);
 
     $('btn-flag').addEventListener('click', () => setFlagMode(!state.flagMode));
