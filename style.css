@@ -1810,3 +1810,79 @@ body::after {
   color: #c62828;
 }
 
+/* ---------- 对局回顾 ---------- */
+.menu-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.menu-btn:disabled:hover {
+  background: #fbfbfb;
+  border-color: #dedede;
+  transform: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+}
+
+#screen-review.is-active {
+  display: block;
+  position: fixed;
+  inset: 0;
+  padding: 10px;
+}
+
+.review-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 1180px;
+  height: 100%;
+  margin: 0 auto;
+}
+
+.review-header {
+  flex: none;
+  padding: 8px 10px;
+  background: #fbfbfb;
+  border: 1px solid #dedede;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+}
+
+.review-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-heading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.review-heading p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.review-tip {
+  flex: none;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.review-board-wrap {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+}
+
+.review-board .cell {
+  cursor: default;
+  pointer-events: none;
+  animation: none;
+}
+
