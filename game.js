@@ -9,7 +9,7 @@
     flag:
       '<svg viewBox="0 0 24 24"><path d="M7 21V3" stroke="#1b1b1b" stroke-width="2.6" stroke-linecap="round"/><path d="M7.2 3.2 19.6 8.6 7.2 14z" fill="currentColor"/><path d="M4 21h6" stroke="#1b1b1b" stroke-width="2.6" stroke-linecap="round"/></svg>',
     mine:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/></svg>',
+      '<img class="mine-icon" src="mine-icon.png" alt="" draggable="false">',
     trophy:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v3.6a4 4 0 0 1-8 0V4Z"/><path d="M8 5H5v1.8A3 3 0 0 0 8 9.8M16 5h3v1.8a3 3 0 0 1-3 3"/><path d="M12 11.6V16M9 20h6M9.6 20l.4-4h4l.4 4"/></svg>',
     clock:
@@ -225,8 +225,10 @@
     },
 
     boom() {
-      this.noise(0.55, 0.14);
-      this.tone(170, 0.6, { to: 40, type: 'sawtooth', gain: 0.1 });
+      // 复古像素爆炸：短噪声 + 方波急速下坠 + 低频尾音
+      this.noise(0.28, 0.16);
+      this.tone(920, 0.16, { to: 90, type: 'square', gain: 0.075 });
+      this.tone(110, 0.38, { to: 32, type: 'triangle', gain: 0.08, delay: 0.05 });
     },
 
     win() {
