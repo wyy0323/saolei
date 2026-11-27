@@ -43,6 +43,8 @@
     flagMode: false,
     sound: loadSound(),
     game: null,
+    review: null,
+    reviewView: null,
     lastTouchAt: 0,
     touchHandled: false,
     longFired: false,
@@ -454,7 +456,7 @@
     });
   }
 
-  const SCREENS = ['home', 'difficulty', 'records', 'game'];
+  const SCREENS = ['home', 'difficulty', 'records', 'review', 'game'];
 
   function showScreen(name) {
     SCREENS.forEach((key) => {
@@ -480,6 +482,7 @@
       els: [],
       status: 'ready',
       prevStatus: null,
+      minesPlaced: false,
       revealed: 0,
       flags: 0,
       elapsed: 0,
@@ -487,6 +490,8 @@
       running: false,
       timerId: null,
       history: [],
+      undoCount: 0,
+      revealAll: false,
       lossRecord: null,
     };
 
@@ -498,6 +503,7 @@
     $('game-diff-name').textContent = g.name;
     $('game-diff-meta').textContent = `${cols} × ${rows} · ${mines} 雷`;
     $('stat-time').textContent = '00:00';
+    $('stat-undos').textContent = '0';
     $('game-tip').textContent = '首次点击不会踩雷';
     $('pause-overlay').hidden = true;
     $('result-overlay').hidden = true;
@@ -613,16 +619,19 @@
     paintCell(index, node);
   }
 
-  function paintCell(index, node) {
-    const cell = state.game.cells[index];
+  function paintCell(index, node, game = state.game, showMines = false) {
+    const cell = game.cells[index];
     let className = 'cell';
     let html = '';
 
-    if (cell.state === 'revealed') {
+    if (showMines && cell.mine) {
+      className += cell.exploded ? ' revealed boom' : ' revealed mine';
+      html = SVG.mine;
+    } else if (cell.state === 'revealed') {
       className += ' revealed';
       if (cell.mine) {
         className += cell.exploded ? ' boom' : ' mine';
-        html = SVG.mine;
+        html = game.status === 'lost' && !game.revealAll && !showMines ? '' : SVG.mine;
       } else if (cell.adj > 0) {
         className += ` n${cell.adj}`;
         html = String(cell.adj);
@@ -702,6 +711,123 @@
     board.appendChild(frag);
   }
 
+  /* ================= 对局回顾 ================= */
+
+  function updateReviewButton() {
+    const hasReview = Boolean(state.review);
+    $('btn-goto-review').disabled = !hasReview;
+    $('review-menu-hint').textContent = hasReview ? '查看上一局失败的雷位' : '暂无失败对局';
+  }
+
+  function saveReview(g) {
+    // 只保留回顾所需数据，撤销快照和棋盘节点可随旧对局释放
+    state.review = {
+      name: g.name,
+      rows: g.rows,
+      cols: g.cols,
+      mines: g.mines,
+      cells: g.cells,
+    };
+    updateReviewButton();
+  }
+
+  function openReview() {
+    const g = state.review;
+    if (!g) return;
+
+    $('review-meta').textContent = `${g.name} · ${g.cols} × ${g.rows} · ${g.mines} 雷`;
+    $('review-board').innerHTML = '';
+    state.reviewView = { game: g, els: new Map(), view: null };
+    showScreen('review');
+    $('review-board-wrap').scrollLeft = 0;
+    $('review-board-wrap').scrollTop = 0;
+    requestAnimationFrame(fitReview);
+  }
+
+  function closeReview() {
+    state.reviewView = null;
+    $('review-board').innerHTML = '';
+    showScreen('home');
+  }
+
+  let reviewFrame = 0;
+
+  function scheduleReviewView() {
+    if (reviewFrame) return;
+    reviewFrame = requestAnimationFrame(() => {
+      reviewFrame = 0;
+      syncReview(false);
+    });
+  }
+
+  function fitReview() {
+    const view = state.reviewView;
+    if (!view) return;
+
+    const g = view.game;
+    const wrap = $('review-board-wrap');
+    const board = $('review-board');
+    const gap = 1;
+    const pad = 3;
+    const availW = wrap.clientWidth - 16 - gap * (g.cols - 1);
+    const availH = wrap.clientHeight - 16 - gap * (g.rows - 1);
+    const size = Math.max(16, Math.min(44, Math.floor(Math.min(availW / g.cols, availH / g.rows))));
+
+    board.style.setProperty('--cell', `${size}px`);
+    board.style.setProperty('--gap', `${gap}px`);
+    board.style.width = `${g.cols * size + (g.cols - 1) * gap + pad * 2}px`;
+    board.style.height = `${g.rows * size + (g.rows - 1) * gap + pad * 2}px`;
+    syncReview(true);
+  }
+
+  function syncReview(force) {
+    const view = state.reviewView;
+    if (!view) return;
+
+    const g = view.game;
+    const wrap = $('review-board-wrap');
+    const board = $('review-board');
+    const size = parseFloat(board.style.getPropertyValue('--cell')) || 16;
+    const gap = 1;
+    const pad = 3;
+    const step = size + gap;
+    const margin = 2;
+
+    const c0 = Math.max(0, Math.floor((wrap.scrollLeft - pad) / step) - margin);
+    const c1 = Math.min(g.cols - 1, Math.ceil((wrap.scrollLeft + wrap.clientWidth - pad) / step) + margin);
+    const r0 = Math.max(0, Math.floor((wrap.scrollTop - pad) / step) - margin);
+    const r1 = Math.min(g.rows - 1, Math.ceil((wrap.scrollTop + wrap.clientHeight - pad) / step) + margin);
+
+    const current = view.view;
+    if (!force && current && current.r0 === r0 && current.r1 === r1 && current.c0 === c0 && current.c1 === c1) return;
+    view.view = { r0, r1, c0, c1 };
+
+    view.els.forEach((node, index) => {
+      const r = Math.floor(index / g.cols);
+      const c = index % g.cols;
+      if (r < r0 || r > r1 || c < c0 || c > c1) {
+        node.remove();
+        view.els.delete(index);
+      }
+    });
+
+    const frag = document.createDocumentFragment();
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        const index = r * g.cols + c;
+        if (view.els.has(index)) continue;
+        const node = document.createElement('div');
+        node.dataset.i = String(index);
+        node.style.setProperty('--r', String(r));
+        node.style.setProperty('--c', String(c));
+        view.els.set(index, node);
+        paintCell(index, node, g, true);
+        frag.appendChild(node);
+      }
+    }
+    board.appendChild(frag);
+  }
+
   function updateStats() {
     const g = state.game;
     if (!g) return;
@@ -754,10 +880,14 @@
 
     const wasLost = g.status === 'lost';
     const snap = g.history.pop();
+    g.undoCount += 1;
+    $('stat-undos').textContent = String(g.undoCount);
 
     if (wasLost) {
       removeRecord(g.lossRecord);
       g.lossRecord = null;
+      state.review = null;
+      updateReviewButton();
       $('result-overlay').hidden = true;
       $('board').classList.remove('is-shaking');
       $('board-wrap').classList.remove('is-paused');
@@ -824,6 +954,7 @@
       }
       g.cells[i].adj = count;
     }
+    g.minesPlaced = true;
   }
 
   function floodReveal(start) {
@@ -946,15 +1077,8 @@
     g.cells[index].exploded = true;
     applyCell(index);
 
-    g.cells.forEach((cell, i) => {
-      if (cell.mine && cell.state !== 'flagged' && cell.state !== 'revealed') {
-        cell.state = 'revealed';
-        applyCell(i);
-      } else if (!cell.mine && cell.state === 'flagged') {
-        cell.state = 'wrong';
-        applyCell(i);
-      }
-    });
+    // 失败时不再展开其余地雷，完整雷位仅在对局回顾中展示
+    saveReview(g);
 
     const secs = Math.floor(elapsedNow());
     g.lossRecord = addRecord(g, false, secs);
@@ -1014,7 +1138,7 @@
       ? isNew
         ? '新纪录！这是目前最快的成绩'
         : '排雷成功，再挑战一次？'
-      : '差一点点，换个思路再来一局';
+      : '雷位已隐藏，可返回主菜单查看对局回顾';
     $('result-time').textContent = formatClock(secs);
     $('result-best').textContent = bestSec == null ? '--:--' : formatClock(bestSec);
     $('result-best').classList.toggle('is-new', Boolean(isNew));
@@ -1078,6 +1202,40 @@
     if (wasPlaying) resumeTimer();
   }
 
+  function revealMinesAndLose() {
+    const g = state.game;
+    if (!g || g.status !== 'paused') return;
+
+    pauseTimer();
+    if (!g.minesPlaced) placeMines(0);
+    g.status = 'lost';
+    g.prevStatus = null;
+    g.revealAll = true;
+    g.history = [];
+
+    $('pause-overlay').hidden = true;
+    $('board-wrap').classList.remove('is-paused');
+    $('btn-pause').classList.remove('is-active');
+
+    g.cells.forEach((cell, i) => {
+      if (cell.mine) {
+        cell.state = 'revealed';
+        applyCell(i);
+      } else if (cell.state === 'flagged') {
+        cell.state = 'wrong';
+        applyCell(i);
+      }
+    });
+
+    const secs = Math.floor(elapsedNow());
+    g.lossRecord = addRecord(g, false, secs);
+    saveReview(g);
+    updateUndo();
+    $('result-overlay').hidden = true;
+    $('game-tip').textContent = '本局已失败，雷位已全部显示';
+    showToast('本局已判负，无法继续或撤销');
+  }
+
   function restart() {
     const g = state.game;
     if (!g) return;
@@ -1098,6 +1256,7 @@
     $('btn-pause').classList.remove('is-active');
     $('board').innerHTML = '';
     renderDiffs();
+    updateReviewButton();
     showScreen('home');
   }
 
@@ -1313,6 +1472,9 @@
     $('btn-diff-back').addEventListener('click', () => showScreen('home'));
     $('btn-records-back').addEventListener('click', () => showScreen('home'));
     $('btn-clear-records').addEventListener('click', handleClearRecords);
+    $('btn-goto-review').addEventListener('click', openReview);
+    $('btn-review-back').addEventListener('click', closeReview);
+    $('review-board-wrap').addEventListener('scroll', scheduleReviewView, { passive: true });
 
     $('btn-help').addEventListener('click', () => {
       const panel = $('help-panel');
@@ -1331,6 +1493,7 @@
     $('btn-resume').addEventListener('click', resumeGame);
     $('btn-pause-restart').addEventListener('click', restart);
     $('btn-pause-diff').addEventListener('click', goHome);
+    $('btn-pause-reveal').addEventListener('click', revealMinesAndLose);
     $('btn-pause-home').addEventListener('click', goHome);
 
     $('btn-again').addEventListener('click', restart);
@@ -1387,6 +1550,7 @@
       resizeRaf = requestAnimationFrame(() => {
         resizeRaf = 0;
         fitBoard();
+        fitReview();
       });
     });
   }
@@ -1395,6 +1559,7 @@
 
   function init() {
     renderDiffs();
+    updateReviewButton();
     bindUI();
     bindBoard();
     setSound(state.sound, false);
