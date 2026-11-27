@@ -225,10 +225,10 @@
     },
 
     boom() {
-      // 复古像素爆炸：短噪声 + 方波急速下坠 + 低频尾音
-      this.noise(0.28, 0.16);
-      this.tone(920, 0.16, { to: 90, type: 'square', gain: 0.075 });
-      this.tone(110, 0.38, { to: 32, type: 'triangle', gain: 0.08, delay: 0.05 });
+      // 低沉爆破：噪声冲击 + 低频轰鸣 + 短促碎裂音
+      this.noise(0.65, 0.2);
+      this.tone(95, 0.5, { to: 26, type: 'sine', gain: 0.13 });
+      this.tone(320, 0.1, { to: 75, type: 'triangle', gain: 0.04 });
     },
 
     win() {
